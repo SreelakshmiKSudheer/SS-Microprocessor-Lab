@@ -7,12 +7,17 @@ typedef struct {
     char val[2];
 } OPTAB;
 
+
 typedef struct SYMTAB {
     char sym[6];
     char add[4];
     int errflag;
     struct SYMTAB *link;
 } SYMTAB;
+
+
+OPTAB optab[3] = {{"LDA", "00"}, {"MUL", "20"}, {"STA", "0C"}};
+SYMTAB *header = NULL;
 
 int power(int num, int p) {
     int i, ret = 1;
@@ -64,8 +69,6 @@ void dtoh(int dec, char hex[]) {
     hex[i] = '\0';
 }
 
-OPTAB optab[3] = {{"LDA", "00"}, {"MUL", "20"}, {"STA", "0C"}};
-SYMTAB *header = NULL;
 
 int is_op(char opc[]) {
     for (int i = 0; i < 3; i++) {
@@ -92,21 +95,25 @@ void insertSymbol(char label[], int locctr, SYMTAB *ptr) {
     strcpy(New->sym, label);
     dtoh(locctr, address);
     strcpy(New->add, address);
+    New->errflag = 0;
     New->link = header;
     header = New;
 }
 
 int main() {
     header = (SYMTAB *)malloc(sizeof(SYMTAB));
-    if (header == NULL) {
+    if (header == NULL) 
+    {
         printf("Memory allocation failed\n");
         return 1;
     }
+
 
     strcpy(header->sym, "\0");
     strcpy(header->add, "\0");
     header->errflag = 0;
     header->link = NULL;
+
 
     FILE *input, *output;
     input = fopen("source_4.txt", "r");
@@ -114,69 +121,102 @@ int main() {
     char line[64], opcode[10], operand[10], label[10];
     char str1[10], str2[10], str3[10];
     char Address[4] = "0000", start[4] = "0000";
-    int StartAdd, locctr;
+    int StartAdd, locctr, flag = 0;
+    SYMTAB *ptr = header;
 
-    if (input == NULL) {
+
+    if (input == NULL) 
+    {
         printf("Error opening input file\n");
         return 1;
-    } else {
+    } 
+    else 
+    {
         printf("Program:\n");
         fgets(line, sizeof(line), input);
+        printf("%s",line);
         str1[0] = '\0';
         str2[0] = '\0';
         str3[0] = '\0';
         sscanf(line, " %s %s %s", str1, str2, str3);
 
-        if (str3[0] == '\0') {
+
+        if (str3[0] == '\0') 
+        {
             strcpy(opcode, str1);
             strcpy(operand, str2);
-        } else {
+        } 
+        else 
+        {
             strcpy(label, str1);
             strcpy(opcode, str2);
             strcpy(operand, str3);
         }
 
-        if (strcmp(opcode, "START") == 0) {
+
+        if (strcmp(opcode, "START") == 0) 
+        {
             StartAdd = htod(operand);
-            strcpy(start, operand);
+            dtoh(StartAdd,start);
             locctr = StartAdd;
             fprintf(output, "\t      %s", line);
             fgets(line, sizeof(line), input);
-        } else {
+        } 
+        else 
+        {
             locctr = 0;
         }
 
-        do {
+
+        do 
+        {
+            printf("%s",line);
             str1[0] = '\0';
             str2[0] = '\0';
             str3[0] = '\0';
             sscanf(line, " %s %s %s", str1, str2, str3);
 
+
             if (strcmp(".", str1) == 0)
                 continue;
-            if (str3[0] == '\0') {
+            if (str3[0] == '\0') 
+            {
                 strcpy(label, "\t");
                 strcpy(opcode, str1);
                 strcpy(operand, str2);
-            } else {
+            } 
+            else 
+            {
                 strcpy(label, str1);
                 strcpy(opcode, str2);
                 strcpy(operand, str3);
-                if (!is_found(label, header)) {
+                ptr = header;
+                if (!is_found(label, header)) 
+                {
                     insertSymbol(label, locctr, header);
                 }
+                else
+                {
+                        printf("Error: Symbol already exit\n");  
+			            continue;
+ 		        }
             }
 
+
             if (strcmp(opcode, "END") == 0) {
-                fprintf(output, "\t\tEND\t%s\n", start);
+                dtoh(StartAdd,Address);
+                fprintf(output, "\t      END    %s\n", Address);
                 break;
             }
+
 
             dtoh(locctr, Address);
 			fprintf(output, "%-6s %-6s %-6s %-6s\n", Address, label, opcode, operand);
 
+
             if (is_op(opcode))
                 locctr += 3;
+ 
             else if (strcmp(opcode, "WORD") == 0)
                 locctr += 3;
             else if (strcmp(opcode, "RESW") == 0)
@@ -184,17 +224,62 @@ int main() {
             else if (strcmp(opcode, "RESB") == 0)
                 locctr += atoi(operand);
             else if (strcmp(opcode, "BYTE") == 0)
-                locctr += strlen(operand) - 3;  // For BYTE C'...' or X'...'
+                locctr += strlen(operand) - 3;
+           
+
+
 
         } while (fgets(line, sizeof(line), input));
 
-        printf("Total length of program: %d\n", locctr - StartAdd);
+
+        printf("\nTotal length of program: %d\n", locctr - StartAdd);
         fclose(input);
         fclose(output);
-    }
+        
+        FILE *symt, *opt;
+        symt = fopen("symtab4.txt", "w");
+        opt = fopen("optab4.txt", "w");
 
-    // Free allocated memory
+        if (symt == NULL) 
+        {
+            printf("Error opening symtab file\n");
+            return 1;
+        } 
+        else
+        {
+            printf("\nSymtab:\n");
+            ptr = header;
+            while(ptr->link != NULL)
+            {
+                    
+                    printf("%-6s %-6s %-6d\n", ptr->sym, ptr->add, ptr->errflag);
+                    fprintf(symt,"%-6s %-6s %-6d\n", ptr->sym, ptr->add, ptr->errflag);
+                    ptr = ptr->link;
+            }
+            fclose(symt);
+        }
+
+        if (opt == NULL) 
+        {
+            printf("Error opening optab file\n");
+            return 1;
+        } 
+        else
+        {
+            int i;
+            for(i = 0; i < 3; i++)
+            {
+                fprintf(opt,"%-6s %-6s\n",optab[i].op,optab[i].val);
+            }
+            fclose(opt);
+        
+        }
+    }
+    
+    
     free(header);
+
 
     return 0;
 }
+
