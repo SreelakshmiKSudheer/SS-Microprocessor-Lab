@@ -1,4 +1,3 @@
-DELTA  1012   0     
 GAMMA  100F   0     
 BETA   100C   0     
 ALPHA  1009   0     
