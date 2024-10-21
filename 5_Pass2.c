@@ -115,7 +115,7 @@ int main()
         strcpy(symtab[i].add,str2);
         // strcpy(symtab[i].errflag,str3);
         //
-        printf("%s %s\n", symtab[i].sym,symtab[i].add);
+        printf("%-6s %-6s\n", symtab[i].sym,symtab[i].add);
         i++;
     }
     if (intermediate == NULL) 
@@ -123,6 +123,16 @@ int main()
         printf("Error opening intermediate file\n");
         return 1;
     } 
+    else
+    {
+        
+    }
     
     
 }
+
+/*
+read input file
+if START - header record
+
+ */

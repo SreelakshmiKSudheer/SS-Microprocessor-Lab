@@ -7,14 +7,13 @@ typedef struct {
     char val[2];
 } OPTAB;
 
-
 typedef struct SYMTAB {
     char sym[6];
     char add[4];
-    int errflag;
+    int def;
+    int *list;
     struct SYMTAB *link;
 } SYMTAB;
-
 
 OPTAB optab[3] = {{"LDA", "00"}, {"MUL", "20"}, {"STA", "0C"}};
 SYMTAB *header = NULL;
@@ -89,13 +88,18 @@ int is_found(char sym[], SYMTAB *ptr) {
     return 0;
 }
 
-void insertSymbol(char label[], int locctr, SYMTAB *ptr) {
+void symNull(char label[],int locctr, SYMTAB *ptr)
+{
+    
+}
+void sumNew(char label[], int locctr, SYMTAB *ptr) {
     SYMTAB *New = (SYMTAB *)malloc(sizeof(SYMTAB));
     char address[6];
     strcpy(New->sym, label);
     dtoh(locctr, address);
     strcpy(New->add, address);
-    New->errflag = 0;
+    New->def = 1;
+    New->list = NULL;
     New->link = header;
     header = New;
 }
@@ -107,13 +111,10 @@ int main() {
         printf("Memory allocation failed\n");
         return 1;
     }
-
-
     strcpy(header->sym, "\0");
     strcpy(header->add, "\0");
-    header->errflag = 0;
+    header->def = 0;
     header->link = NULL;
-
 
     FILE *input, *output;
     input = fopen("source_4.txt", "r");
@@ -123,7 +124,6 @@ int main() {
     char Address[4] = "0000", start[4] = "0000";
     int StartAdd, locctr, flag = 0;
     SYMTAB *ptr = header;
-
 
     if (input == NULL) 
     {
@@ -159,14 +159,13 @@ int main() {
             StartAdd = htod(operand);
             dtoh(StartAdd,start);
             locctr = StartAdd;
-            fprintf(output, "%s", line);
+            fprintf(output, "\t      %s", line);
             fgets(line, sizeof(line), input);
         } 
         else 
         {
             locctr = 0;
         }
-
 
         do 
         {
@@ -175,7 +174,6 @@ int main() {
             str2[0] = '\0';
             str3[0] = '\0';
             sscanf(line, " %s %s %s", str1, str2, str3);
-
 
             if (strcmp(".", str1) == 0)
                 continue;
@@ -191,17 +189,15 @@ int main() {
                 strcpy(opcode, str2);
                 strcpy(operand, str3);
                 ptr = header;
-                if (!is_found(label, header)) 
+                if(is_found(label,ptr))
                 {
-                    insertSymbol(label, locctr, header);
+                    
                 }
                 else
                 {
-                        printf("Error: Symbol already exit\n");  
-			            continue;
- 		        }
+                    sumNew(label, locctr, ptr);
+                }
             }
-
 
             if (strcmp(opcode, "END") == 0) {
                 dtoh(StartAdd,Address);
@@ -209,10 +205,8 @@ int main() {
                 break;
             }
 
-
             dtoh(locctr, Address);
 			fprintf(output, "%-6s %-6s %-6s %-6s\n", Address, label, opcode, operand);
-
 
             if (is_op(opcode))
                 locctr += 3;
@@ -224,22 +218,17 @@ int main() {
             else if (strcmp(opcode, "RESB") == 0)
                 locctr += atoi(operand);
             else if (strcmp(opcode, "BYTE") == 0)
-                locctr += strlen(operand) - 3;
-           
-
-
+                locctr += strlen(operand) - 3;   
 
         } while (fgets(line, sizeof(line), input));
-
 
         printf("\nTotal length of program: %d\n", locctr - StartAdd);
         fclose(input);
         fclose(output);
         
-        FILE *symt, *opt, *totlen;
+        FILE *symt, *opt;
         symt = fopen("symtab4.txt", "w");
         opt = fopen("optab4.txt", "w");
-        totlen = fopen("totlen.txt","w");
 
         if (symt == NULL) 
         {
@@ -251,8 +240,7 @@ int main() {
             printf("\nSymtab:\n");
             ptr = header;
             while(ptr->link != NULL)
-            {
-                    
+            {    
                     printf("%-6s %-6s %-6d\n", ptr->sym, ptr->add, ptr->errflag);
                     fprintf(symt,"%-6s %-6s %-6d\n", ptr->sym, ptr->add, ptr->errflag);
                     ptr = ptr->link;
@@ -274,21 +262,9 @@ int main() {
             }
             fclose(opt);
         }
-        if (totlen == NULL) 
-        {
-            printf("Error opening totlen file\n");
-            return 1;
-        }
-        else
-        {
-            fprintf(totlen,"%d",locctr - StartAdd);
-        } 
     }
     
-    
     free(header);
-
-
     return 0;
 }
 
