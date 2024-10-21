@@ -88,10 +88,11 @@ void is_sym(SYMTAB symtab[], char operand[], char address[])
 
 int main()
 {
-    FILE *intermediate, *output, *code, *symt;
+    FILE *intermediate, *output, *code, *symt, *totlen;
     
     intermediate = fopen("intermediate.txt", "r");
     symt = fopen("symtab4.txt", "r");
+    totlen = fopen("totlen.txt", "r");
     output = fopen("output.txt", "w");
     code = fopen("code.txt", "w");
 
@@ -102,8 +103,8 @@ int main()
     }
     char line[64], add[10], label[10], opcode[10], operand[10];
     char str1[10], str2[10], str3[10], str4[10];
-    char hex[6] = "000000", ob[2], trec[60] = {0}, Address[4] = "0000";
-    int StartAdd, locctr, length, tloc = 0;
+    char hex[6] = "000000", ob[2], trec[60] = {0}, Address[4] = "0000",hrec[25],len[2];
+    int StartAdd, locctr, tloc = 0;
 
     int i = 0;
     while(fgets(line, sizeof(line), symt))
@@ -118,6 +119,18 @@ int main()
         printf("%-6s %-6s\n", symtab[i].sym,symtab[i].add);
         i++;
     }
+    if(totlen == NULL)
+    {
+        printf("Error opening intermediate file\n");
+        return 1;   
+    }
+    else
+    {
+        fgets(line, sizeof(line), totlen);
+        strcpy(len,line);
+        
+        
+    }
     if (intermediate == NULL) 
     {
         printf("Error opening intermediate file\n");
@@ -125,7 +138,60 @@ int main()
     } 
     else
     {
+        printf("Program:\n");
+        fgets(line, sizeof(line), intermediate);
+
+        str1[0] = '\0';
+        str2[0] = '\0';
+        str3[0] = '\0';
+        str4[0] = '\0';
         
+        sscanf(line, " %s %s %s %s", str1, str2, str3, str4);
+
+        if(str4[0] != '\0')
+        {
+            strcpy(add, str1);
+            strcpy(label, str2);
+            strcpy(opcode, str3);
+            strcpy(operand, str4);
+        }
+        else
+        {
+            if(str3[0] != '\0')
+            {
+                strcpy(add, str1);
+                strcpy(opcode, str2);
+                strcpy(operand, str3);
+                strcpy(label, "     ");
+            }
+            else
+            {
+                if(str2[0] != '\0')
+                {
+                    strcpy(opcode, str1);
+                    strcpy(operand, str2);
+                    strcpy(label, "     ");
+                    strcpy(add, "    ");
+                }
+            }
+        }
+        //printf("%-6s %-6s %-6s %-6s", add, label, opcode, operand);
+
+        if (strcmp(opcode, "START") == 0) 
+        {
+            fprintf(code, "%s\n", line);
+            strcat(hrec,"H^");
+            strcat(hrec,add);
+            strcat(hrec,"^00");
+            strcat(hrec,operand);
+            strcat(hrec,"^0000");
+            strcat(hrec,"\0");
+            //printf("%s",hrec);
+            fprintf(output, "%s", hrec);
+            fprintf(output,"%c%c\n",len[0],len[1]);
+        }
+
+
     }
     
     
