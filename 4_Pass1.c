@@ -159,7 +159,7 @@ int main() {
             StartAdd = htod(operand);
             dtoh(StartAdd,start);
             locctr = StartAdd;
-            fprintf(output, "%s", line);
+            fprintf(output, "       %-6s %-6s %-6s\n", label, opcode, operand);
             fgets(line, sizeof(line), input);
         } 
         else 
