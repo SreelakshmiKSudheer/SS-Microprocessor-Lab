@@ -324,9 +324,3 @@ int main()
 
     }
 }
-
-/*
-read input file
-if START - header record
-
- */
