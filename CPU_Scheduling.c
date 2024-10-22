@@ -351,6 +351,11 @@ void rr(Process *a, int n)
     
 }
 
+int prev(int rec[], int c)
+{
+    int i;
+    for()
+}
 void rr_fcfs(Process *a, int n)
 {
     sort(a,n);
@@ -377,7 +382,9 @@ void rr_fcfs(Process *a, int n)
         for(i = 0; i < n; i++)
         {
             if(sys_time < a[i].arr_time)
-                sys_time = a[i].arr_time;
+            {
+                if()
+            }
 
             if(rec[i] == 0 && a[i].arr_time <= sys_time)
             {
