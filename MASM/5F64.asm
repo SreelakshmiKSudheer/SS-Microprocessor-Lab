@@ -45,6 +45,7 @@ CODE SEGMENT
      MUL BL
      AAM
      MOV [SI],AL
+
      INC SI
      MOV [SI],AH
      MOV AH,00H
@@ -53,6 +54,7 @@ CODE SEGMENT
      AAM
      MOV DX,AX
      ADD DL,[SI]
+     
      MOV AH,00H
      MOV AL,CH
      MUL BL
