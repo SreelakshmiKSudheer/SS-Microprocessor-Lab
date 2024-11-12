@@ -2,269 +2,308 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct {
-    char op[6];
-    char val[2];
-} OPTAB;
+// linked list of operands
+typedef struct filler
+{
+    char addr[5];
+    struct filler *link;
+}filler;
 
-typedef struct SYMTAB {
-    char sym[6];
-    char add[4];
-    int def;
-    int *list;
-    struct SYMTAB *link;
-} SYMTAB;
+// symbols
+typedef struct symt
+{
+    char sym[10];
+    int addr;
+    int errflag;
+    filler *fill;
+    struct symt *link;
+}symt;
 
-OPTAB optab[3] = {{"LDA", "00"}, {"MUL", "20"}, {"STA", "0C"}};
-SYMTAB *header = NULL;
+// opcodes
+typedef struct opt
+{
+    char op[10];
+    char val[5];
+}opt;
 
-int power(int num, int p) {
-    int i, ret = 1;
-    if (p == 0)
-        return ret;
-    for (i = 0; i < p; i++)
-        ret *= 16;
-    return ret;
-}
+opt optab[3] = {{"LDA","00"},{"MUL","20"},{"STA","0C"}}; // Example opcode table
 
-int hexdec(char hex) {
-    if (hex >= '0' && hex <= '9')
-        return hex - '0';
-    if (hex >= 'A' && hex <= 'F')
-        return 10 + (hex - 'A');
-    return -1; // Error case
-}
-
-char dechex(int dec) {
-    if (dec >= 0 && dec <= 9)
-        return '0' + dec;
-    if (dec >= 10 && dec <= 15)
-        return 'A' + (dec - 10);
-    return '\0'; // Error case
-}
-
-int htod(char str[]) {
-    int i, num = 0;
-    int n = strlen(str);
-    for (i = 0; i < n; i++) {
-        num += hexdec(str[n - i - 1]) * power(16, i);
+// initialize a symbol
+symt* getSymt(char sym[])
+{
+    symt *New = (symt*)malloc(sizeof(symt));
+    if (New != NULL)
+    {
+        strcpy(New->sym, sym);
+        New->link = NULL;
+        New->errflag = 0;
+        New->fill = NULL;
     }
-    return num;
+    return New;
 }
 
-void dtoh(int dec, char hex[]) {
-    int i = 0;
-    char rev[6] = "0000";
-    while (dec) {
-        rev[i++] = dechex(dec % 16);
-        dec /= 16;
-    }
-    rev[i] = '\0';
-
-    int n = strlen(rev);
-    for (i = 0; i < n; i++) {
-        hex[i] = rev[n - i - 1];
-    }
-    hex[i] = '\0';
-}
-
-
-int is_op(char opc[]) {
-    for (int i = 0; i < 3; i++) {
-        if (strcmp(opc, optab[i].op) == 0) {
-            return 1;
+// insert a symbol to symtab with known address
+void insertSymbol(symt *header, char sym[], int addr)
+{
+    symt *New = getSymt(sym);
+    symt *ptr;
+    if (New != NULL)
+    {
+        New->addr = addr;
+        New->fill = NULL;
+        ptr = header;
+        while (ptr->link != NULL)
+        {
+            ptr = ptr->link;
         }
+        ptr->link = New;
     }
-    return 0;
 }
 
-int is_found(char sym[], SYMTAB *ptr) {
-    while (ptr != NULL) {
-        if (strcmp(sym, ptr->sym) == 0) {
-            return 1;
+// insert a symbol to symtab with unknown address
+void insertSymbolUnknown(symt *header, char sym[], int locctr)
+{
+    char addr[6];
+    symt *New = getSymt(sym);
+    symt *ptr;
+    filler *fptr;
+
+    if (New != NULL)
+    {
+        New->addr = -99999; // Unknown address
+        New->fill = (filler *)malloc(sizeof(filler));
+        fptr = (filler *)malloc(sizeof(filler));
+        sprintf(addr, "%04X", locctr + 1);
+        strcpy(fptr->addr, addr);
+        fptr->link = New->fill->link;
+        New->fill->link = fptr;
+        ptr = header;
+        while (ptr->link != NULL)
+        {
+            ptr = ptr->link;
+        }
+        ptr->link = New;
+    }
+}
+
+// print symtab
+void prints(symt *header)
+{
+    symt *ptr = header->link;
+    printf("Symbol Table\n");
+    while (ptr != NULL)
+    {
+        printf("%s\t %04X\t %d\n", ptr->sym, ptr->addr, ptr->errflag);
+        ptr = ptr->link;
+    }
+}
+
+// free symtab
+void Free(symt *header)
+{
+    symt *ptr = header;
+    symt *ptr1;
+
+    while (ptr->link != NULL)
+    {
+        ptr1 = ptr->link;
+        if (ptr->fill != NULL)
+        {
+            filler *fptr = ptr->fill;
+            while (fptr != NULL)
+            {
+                filler *tmp = fptr;
+                fptr = fptr->link;
+                free(tmp);
+            }
+        }
+        free(ptr);
+        ptr = ptr1;
+    }
+}
+
+// search for a symbol in the symtab
+symt* searchSymbol(symt *header, char sym[])
+{
+    symt *ptr = header->link;
+    while (ptr != NULL)
+    {
+        if (strcmp(ptr->sym, sym) == 0)
+        {
+            return ptr;
         }
         ptr = ptr->link;
     }
-    return 0;
+    return NULL;
 }
 
-void symNull(char label[],int locctr, SYMTAB *ptr)
+// check for valid opcode
+char* isOp(char op[])
 {
-    
-}
-void sumNew(char label[], int locctr, SYMTAB *ptr) {
-    SYMTAB *New = (SYMTAB *)malloc(sizeof(SYMTAB));
-    char address[6];
-    strcpy(New->sym, label);
-    dtoh(locctr, address);
-    strcpy(New->add, address);
-    New->def = 1;
-    New->list = NULL;
-    New->link = header;
-    header = New;
+    int i;
+    for (i = 0; i < 3; i++)
+    {
+        if (strcmp(optab[i].op, op) == 0)
+        {
+            return optab[i].val;
+        }
+    }
+    return "\0";
 }
 
-int main() {
-    header = (SYMTAB *)malloc(sizeof(SYMTAB));
-    if (header == NULL) 
+int main()
+{
+    symt *symtab = (symt *)malloc(sizeof(symt));
+    symt *ptr;
+
+    FILE *input, *obprogram, *prog;
+    char line[100], opcode[10], operand[10], label[10], temp[60], str1[10], str2[10], str3[10];
+    char hrec[20], trec[61], address[10], temp2[200], obj[3], hex[10];
+    char mrec[20] = "T0000000000", *mloc = &mrec[3], *mlen = &mrec[7], *mmod = &mrec[9];
+    int locctr, startAddr, addr;
+
+    input = fopen("source6.txt", "r");
+    obprogram = fopen("onePassObjProgram.txt", "w");
+    prog = fopen("listing.txt", "w");
+
+    if (input == NULL)
     {
-        printf("Memory allocation failed\n");
+        printf("Error opening input file!\n");
         return 1;
     }
-    strcpy(header->sym, "\0");
-    strcpy(header->add, "\0");
-    header->def = 0;
-    header->link = NULL;
-
-    FILE *input, *output;
-    input = fopen("source_4.txt", "r");
-    output = fopen("intermediate.txt", "w");
-    char line[64], opcode[10], operand[10], label[10];
-    char str1[10], str2[10], str3[10];
-    char Address[4] = "0000", start[4] = "0000";
-    int StartAdd, locctr, flag = 0;
-    SYMTAB *ptr = header;
-
-    if (input == NULL) 
+    else
     {
-        printf("Error opening input file\n");
-        return 1;
-    } 
-    else 
-    {
-        printf("Program:\n");
-        fgets(line, sizeof(line), input);
-        printf("%s",line);
-        str1[0] = '\0';
-        str2[0] = '\0';
-        str3[0] = '\0';
-        sscanf(line, " %s %s %s", str1, str2, str3);
-
-
-        if (str3[0] == '\0') 
+        if (obprogram == NULL)
         {
-            strcpy(opcode, str1);
-            strcpy(operand, str2);
-        } 
-        else 
-        {
-            strcpy(label, str1);
-            strcpy(opcode, str2);
-            strcpy(operand, str3);
+            printf("Error creating the output object program!\n");
+            return 1;
         }
-
-
-        if (strcmp(opcode, "START") == 0) 
+        else
         {
-            StartAdd = htod(operand);
-            dtoh(StartAdd,start);
-            locctr = StartAdd;
-            fprintf(output, "\t      %s", line);
-            fgets(line, sizeof(line), input);
-        } 
-        else 
-        {
-            locctr = 0;
-        }
-
-        do 
-        {
-            printf("%s",line);
-            str1[0] = '\0';
-            str2[0] = '\0';
-            str3[0] = '\0';
-            sscanf(line, " %s %s %s", str1, str2, str3);
-
-            if (strcmp(".", str1) == 0)
-                continue;
-            if (str3[0] == '\0') 
+            if (prog == NULL)
             {
-                strcpy(label, "\t");
-                strcpy(opcode, str1);
-                strcpy(operand, str2);
-            } 
-            else 
+                printf("Error creating the output program!\n");
+                return 1;
+            }
+            else
             {
-                strcpy(label, str1);
-                strcpy(opcode, str2);
-                strcpy(operand, str3);
-                ptr = header;
-                if(is_found(label,ptr))
+                str1[0] = '\0';
+                str2[0] = '\0';
+                str3[0] = '\0';
+
+                fgets(line, sizeof(line), input);
+                sscanf(line, "%s %s %s", str1, str2, str3);
+
+                if (str3[0] != '\0')
                 {
-                    
+                    strcpy(label, str1);
+                    strcpy(opcode, str2);
+                    strcpy(operand, str3);
+                }
+                else if (str2[0] != '\0')
+                {
+                    strcpy(opcode, str1);
+                    strcpy(operand, str2);
+                }
+                else if (str1[0] != '\0')
+                {
+                    strcpy(opcode, str1);
+                }
+
+                if (strcmp(opcode, "START") == 0)
+                {
+                    startAddr = strtol(operand, NULL, 16);
+                    locctr = startAddr;
                 }
                 else
                 {
-                    sumNew(label, locctr, ptr);
+                    locctr = 0;
                 }
+                strcat(hrec, "H");
+                sprintf(address, "%06X", locctr);
+                strcat(hrec, address);
+                fgets(line, sizeof(line), input);
+                strcpy(trec, "T");
+                strcat(trec, address);
+
+                do
+                {
+                    str1[0] = '\0';
+                    str2[0] = '\0';
+                    str3[0] = '\0';
+                    label[0] = '\0';
+                    opcode[0] = '\0';
+                    operand[0] = '\0';
+
+                    sscanf(line, "%s %s %s", str1, str2, str3);
+
+                    if (strcmp(str1, ".") == 0)
+                        continue;
+
+                    if (str3[0] != '\0')
+                    {
+                        strcpy(label, str1);
+                        strcpy(opcode, str2);
+                        strcpy(operand, str3);
+                    }
+                    else if (str2[0] != '\0')
+                    {
+                        strcpy(opcode, str1);
+                        strcpy(operand, str2);
+                    }
+                    else if (str1[0] != '\0')
+                    {
+                        strcpy(opcode, str1);
+                    }
+
+                    if (strcmp(opcode, "END") != 0)
+                    {
+                        if (label[0] != '\0')
+                        {
+                            if ((ptr = searchSymbol(symtab, label)) != NULL)
+                            {
+                                if (ptr->addr == -99999)
+                                {
+                                    ptr->addr = locctr;
+                                    sprintf(address, "%04X", locctr);
+                                    filler *fptr = ptr->fill->link;
+                                    filler *fptr2 = fptr;
+                                    strcat(temp, trec);
+                                    strcpy(trec, "T");
+                                    while (fptr != NULL)
+                                    {
+                                        strcpy(mloc, fptr->addr);
+                                        strcpy(mlen, "02");
+                                        strcpy(mmod, address);
+                                        strcat(temp, "\n");
+                                        strcat(temp, mrec);
+                                        fptr2 = fptr;
+                                        fptr = fptr->link;
+                                        free(fptr2);
+                                    }
+                                    ptr->fill->link = NULL;
+                                }
+                                else
+                                {
+                                    printf("Duplicate Entry!\n");
+                                    ptr->errflag = 1;
+                                }
+                            }
+                            else
+                            {
+                                insertSymbol(symtab, label, locctr);
+                            }
+                        }
+                    }
+                } while (strcmp(opcode, "END") != 0);
+                printf("Program successfully assembled.\n");
+
+                fclose(input);
+                fclose(obprogram);
+                fclose(prog);
             }
-
-            if (strcmp(opcode, "END") == 0) {
-                dtoh(StartAdd,Address);
-                fprintf(output, "\t      END    %s\n", Address);
-                break;
-            }
-
-            dtoh(locctr, Address);
-			fprintf(output, "%-6s %-6s %-6s %-6s\n", Address, label, opcode, operand);
-
-            if (is_op(opcode))
-                locctr += 3;
- 
-            else if (strcmp(opcode, "WORD") == 0)
-                locctr += 3;
-            else if (strcmp(opcode, "RESW") == 0)
-                locctr += 3 * atoi(operand);
-            else if (strcmp(opcode, "RESB") == 0)
-                locctr += atoi(operand);
-            else if (strcmp(opcode, "BYTE") == 0)
-                locctr += strlen(operand) - 3;   
-
-        } while (fgets(line, sizeof(line), input));
-
-        printf("\nTotal length of program: %d\n", locctr - StartAdd);
-        fclose(input);
-        fclose(output);
-        
-        FILE *symt, *opt;
-        symt = fopen("symtab4.txt", "w");
-        opt = fopen("optab4.txt", "w");
-
-        if (symt == NULL) 
-        {
-            printf("Error opening symtab file\n");
-            return 1;
-        } 
-        else
-        {
-            printf("\nSymtab:\n");
-            ptr = header;
-            while(ptr->link != NULL)
-            {    
-                    printf("%-6s %-6s %-6d\n", ptr->sym, ptr->add, ptr->errflag);
-                    fprintf(symt,"%-6s %-6s %-6d\n", ptr->sym, ptr->add, ptr->errflag);
-                    ptr = ptr->link;
-            }
-            fclose(symt);
-        }
-
-        if (opt == NULL) 
-        {
-            printf("Error opening optab file\n");
-            return 1;
-        } 
-        else
-        {
-            int i;
-            for(i = 0; i < 3; i++)
-            {
-                fprintf(opt,"%-6s %-6s\n",optab[i].op,optab[i].val);
-            }
-            fclose(opt);
         }
     }
-    
-    free(header);
-    return 0;
-}
 
+    Free(symtab);
+}
