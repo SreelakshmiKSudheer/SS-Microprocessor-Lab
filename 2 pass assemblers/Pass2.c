@@ -291,6 +291,7 @@ int main()
                     {  
                         for (i = 2; i < strlen(operand) - 1; i++) 
                         {
+                            strcpy(object,"");
                             sprintf(hex, "%02X", operand[i]);
                             strncat(object, operand + 2, strlen(operand) - 3);
                             fprintf(output, "%-6s",object);
